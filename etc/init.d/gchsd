@@ -1,0 +1,69 @@
+#!/bin/sh
+#
+### BEGIN INIT INFO
+# Provides:          gchsd
+# Required-Start:    $network
+# Required-Stop:     $network
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: A mirroring Git HTTP server daemon
+# Description:       The daemon caches the original repository and updates the cache as needed.
+### END INIT INFO
+#
+# DAEMON             Location of the binary
+#
+
+PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
+DAEMON=/usr/sbin/forwarder
+NAME=gchsd
+DESC="A mirroring Git HTTP server daemon"
+DAEMON_OPTS=
+
+test -x $DAEMON || exit 0
+
+# Include custom values if available
+if [ -f /etc/default/gchsd ] ; then
+	. /etc/default/gchsd
+fi
+
+DAEMON_OPTS="-b $DAEMON_OPTS"
+
+start() {
+	echo -n "Starting $DESC: "
+
+	$DAEMON $DAEMON_OPTS
+	if [ $? -eq 0 ]; then
+		echo "$NAME."
+	else
+		echo "failed!"
+	fi
+}
+
+stop() {
+	echo -n "Stopping $DESC: "
+	kill $(pidof $DAEMON)
+	if [ $? -eq 0 ]; then
+		echo "$NAME."
+	else
+		echo "failed!"
+	fi
+}
+
+case "$1" in
+	start)
+		start
+		;;
+	stop)
+		stop
+		;;
+	restart|reload|force-reload)
+		stop
+		start
+		;;
+	*)
+		echo "Usage: $0 {start|stop|restart|reload|force-reload}" >&2
+		exit 2
+		;;
+esac
+
+exit 0
