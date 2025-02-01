@@ -3,7 +3,7 @@
 
 [![Build Status](http://xaws6t1emwa2m5pr.myfritz.net:8080/buildStatus/icon?job=craflin%2Fgit-cache-http-server%2Fmaster)](http://xaws6t1emwa2m5pr.myfritz.net:8080/job/craflin/job/git-cache-http-server/job/master/)
 
-A daemon to mirror remote Git repositories and serve them over HTTP, automatically updating them as needed.
+A daemon to mirror remote Git repositories and serve them over HTTP, automatically updating the mirror as needed.
 
 It can be used in CI environments to improve the performance of Git clone operations.
 
