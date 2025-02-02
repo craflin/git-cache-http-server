@@ -1,6 +1,8 @@
 
 set(sources
     Address.hpp
+    HttpRequest.cpp
+    HttpRequest.hpp
     Main.cpp
     Settings.cpp
     Settings.hpp
@@ -13,7 +15,7 @@ add_executable(gchsd
 )
 
 target_link_libraries(gchsd PRIVATE
-    libnstd::Socket
+    libnstd::Socket CURL::libcurl
 )
 
 source_group("" FILES ${sources})

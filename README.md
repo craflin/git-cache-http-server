@@ -12,6 +12,7 @@ The project is a C++/CURL clone of jonasmalacofilho's [git-cache-http-server](ht
 ## Build Instructions
 
 * Clone the repository and initialize submodules.
+* Install a dev package of curl. (e.g. `libcurl4-openssl-dev`)
 * Build the project with `cmake`.
 * You can build a `deb` package using the target `package` in CMake.
 

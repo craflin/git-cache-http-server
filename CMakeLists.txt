@@ -7,6 +7,16 @@ project(gchsd VERSION 0.2.0)
 set(CDEPLOY_NO_DEBUG_BUILD True)
 set(CDEPLOY_NO_COMPILER True)
 
+find_package(CURL REQUIRED)
+if(NOT TARGET CURL::libcurl)
+    add_library(CURL::libcurl INTERFACE IMPORTED)
+    set_target_properties(CURL::libcurl
+        PROPERTIES 
+            INTERFACE_INCLUDE_DIRECTORIES "${CURL_INCLUDE_DIRS}"
+            INTERFACE_LINK_LIBRARIES "${CURL_LIBRARIES}"
+    )
+endif()
+
 include(CDeploy)
 
 add_subdirectory(3rdparty)
@@ -19,7 +29,7 @@ set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "A mirroring Git HTTP server daemon")
 set(CPACK_PACKAGING_INSTALL_PREFIX "/")
 #set(CPACK_DEBIAN_FILE_NAME "DEB-DEFAULT")
 set(CPACK_DEBIAN_PACKAGE_HOMEPAGE "https://github.com/craflin/gchsd")
-set(CPACK_DEBIAN_PACKAGE_DEPENDS "libc6 (>= 2.15)")
+set(CPACK_DEBIAN_PACKAGE_DEPENDS "libc6 (>= 2.15),libcurl4")
 set(CPACK_DEBIAN_PACKAGE_SECTION "net")
 
 include(CPack)
