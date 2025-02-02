@@ -4,10 +4,11 @@
 #include <nstd/File.hpp>
 #include <nstd/List.hpp>
 #include <nstd/Log.hpp>
+#include <nstd/Directory.hpp>
 
 Settings::Settings()
     : listenAddr{Socket::anyAddress, 80}
-    , cacheDir("/tmp/gchsd")
+    , cacheDir(Directory::getTempDirectory() + "/gchsd")
 {
     ;
 }

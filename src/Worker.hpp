@@ -32,6 +32,6 @@ private:
 private:
     uint main();
     void handleRequest();
-    void handleGetRequest(const String& path);
+    void handleGetRequest(const String& repoUrl, const String& repo);
     void handlePostRequest(const String& path, String& body);
 };

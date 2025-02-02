@@ -7,6 +7,9 @@
 #include <nstd/Directory.hpp>
 #include <nstd/Error.hpp>
 #include <nstd/Process.hpp>
+#include <nstd/HashMap.hpp>
+
+#include "HttpRequest.hpp"
 
 Worker::Worker(const Settings& settings, Socket& client, ICallback& callback)
     : _settings(settings)
@@ -109,9 +112,9 @@ String getRequestUrl(const String& path)
     return result;
 }
 
-bool parseGetRequestPath(const String& path, String& url, String& repoUrl, String& repo, String& service)
+bool parseGetRequestPath(const String& path, String& repoUrl, String& repo, String& service)
 {
-    url = getRequestUrl(path);
+    String url = getRequestUrl(path);
     const char* x = url.find("/info/refs?service=");
     if (!x)
         return false;
@@ -125,9 +128,9 @@ bool parseGetRequestPath(const String& path, String& url, String& repoUrl, Strin
 }
 
 
-bool parsePostRequestPath(const String& path, String& url, String& repoUrl, String& repo, String& service)
+bool parsePostRequestPath(const String& path, String& repoUrl, String& repo, String& service)
 {
-    url = getRequestUrl(path);
+    String url = getRequestUrl(path);
     if (!url.endsWith("/git-upload-pack"))
         return false;
     repoUrl = url.substr(0, url.length() - 16);
@@ -136,6 +139,35 @@ bool parsePostRequestPath(const String& path, String& url, String& repoUrl, Stri
     usize serverStart = https ? 8 : 7;
     repo = url.substr(serverStart, repoUrl.length() - serverStart);
     return true;
+}
+
+bool getAuth(const String& header, String& auth)
+{
+    const char* authStart = header.find("\r\nAuthorization: ");
+    if (!authStart)
+        return false;
+    authStart += 17;
+    const char* authEnd = String::find(authStart, "\r\n");
+    if (!authEnd)
+        return false;
+    auth = header.substr(authStart - (const char*)header, authEnd - authStart);
+    return true;
+}
+
+bool isAccessible(const String& url, const String& auth)
+{
+    HttpRequest httpRequest;
+    HashMap<String, String> headerFields;
+    if (!auth.isEmpty())
+        headerFields.append("Authorization", auth);
+    Buffer data;
+    return httpRequest.get(url, data, headerFields, false);
+}
+
+void requestAuth(Socket& client)
+{
+    String response = "HTTP/1.1 401 Unauthorized\r\nWWW-Authenticate: Basic realm=\"\"\r\n\r\n";
+    client.send((const byte*)(const char*)response, response.length());
 }
 
 }
@@ -151,29 +183,40 @@ void Worker::handleRequest()
     if (!parseHeader(header, method, path))
         return;
 
-    // todo: auth
-    // logic? 
-    // if auth is in header check auth with uplink
-    // else check if uplink can be accessed without auth
-    // else ? request auth
-
-    if (method == "GET")
-        handleGetRequest(path);
-    else if (method == "POST")
-        handlePostRequest(path, body);
-}
-
-void Worker::handleGetRequest(const String& path)
-{
-    String requestUrl;
     String repoUrl;
     String repo;
     String service;
-    if (!parseGetRequestPath(path, requestUrl, repoUrl, repo, service))
+    if (method == "GET")
+    {
+        if (!parseGetRequestPath(path, repoUrl, repo, service))
+            return;
+    }
+    else if (method == "POST")
+    {
+        if (!parsePostRequestPath(path, repoUrl, repo, service))
+            return;
+    }
+    else
         return;
+
     if (service != "git-upload-pack")
         return;
 
+    String authCheckUrl = repoUrl + "/info/refs?service=git-upload-pack";
+    String auth;
+    getAuth(header, auth);
+    // todo: auth cache?
+    if (!isAccessible(authCheckUrl, auth))
+        return requestAuth(_client);
+
+    if (method == "GET")
+        handleGetRequest(repoUrl, repo);
+    else if (method == "POST")
+        handlePostRequest(repo, body);
+}
+
+void Worker::handleGetRequest(const String& repoUrl, const String& repo)
+{
     // todo: avoid concurrent git fetch !
 
     // create cache dir
@@ -215,7 +258,7 @@ void Worker::handleGetRequest(const String& path)
             return Log::errorf("Could not launch command '%s': %s", (const char*)command, (const char*)Error::getErrorString());
 
         String response = "HTTP/1.1 200 OK\r\n";
-        response.append(String("Content-Type: application/x-") + service +"-advertisement\r\n");
+        response.append("Content-Type: application/x-git-upload-pack-advertisement\r\n");
         response.append("Cache-Control: no-cache\r\n\r\n");
         response.append("001e# service=git-upload-pack\n0000");
         if (_client.send((const byte*)(const char*)response, response.length()) != response.length())
@@ -236,17 +279,8 @@ void Worker::handleGetRequest(const String& path)
     }
 }
 
-void Worker::handlePostRequest(const String& path, String& body)
+void Worker::handlePostRequest(const String& repo, String& body)
 {
-    String requestUrl;
-    String repoUrl;
-    String repo;
-    String service;
-    if (!parsePostRequestPath(path, requestUrl, repoUrl, repo, service))
-        return;
-    if (service != "git-upload-pack")
-        return;
-
     String cacheDir = _settings.cacheDir + "/" + repo;
 
     {
@@ -261,7 +295,7 @@ void Worker::handlePostRequest(const String& path, String& body)
             return;
 
         String response = "HTTP/1.1 200 OK\r\n";
-        response.append(String("Content-Type: application/x-") + service +"-advertisement\r\n");
+        response.append("Content-Type: application/x-git-upload-pack-advertisement\r\n");
         response.append("Cache-Control: no-cache\r\n\r\n");
         if (_client.send((const byte*)(const char*)response, response.length()) != response.length())
             return;
