@@ -5,9 +5,11 @@
 #include <nstd/List.hpp>
 #include <nstd/Log.hpp>
 #include <nstd/Directory.hpp>
+#include <nstd/Process.hpp>
 
 Settings::Settings()
-    : listenAddr{Socket::anyAddress, 80}
+    : askpassPath(File::getDirectoryName(Process::getExecutablePath()) + "/gchsd-askpass")
+    , listenAddr{Socket::anyAddress, 80}
     , cacheDir(Directory::getTempDirectory() + "/gchsd")
 {
     ;

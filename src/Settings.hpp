@@ -7,6 +7,7 @@
 
 struct Settings
 {
+    String askpassPath;
     Address listenAddr;
     String cacheDir;
 

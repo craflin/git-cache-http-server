@@ -4,6 +4,7 @@
 #include <nstd/Mutex.hpp>
 #include <nstd/Socket/Socket.hpp>
 #include <nstd/Thread.hpp>
+#include <nstd/Buffer.hpp>
 
 #include "Settings.hpp"
 
@@ -32,6 +33,6 @@ private:
 private:
     uint main();
     void handleRequest();
-    void handleGetRequest(const String& repoUrl, const String& repo);
-    void handlePostRequest(const String& path, String& body);
+    void handleGetRequest(const String& repoUrl, const String& repo, const String& auth);
+    void handlePostRequest(const String& repo, const String& auth, Buffer& body);
 };

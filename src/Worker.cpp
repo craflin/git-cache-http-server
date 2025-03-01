@@ -1,5 +1,7 @@
 
 #include "Worker.hpp"
+#include "NamedMutex.hpp"
+#include "Authentications.hpp"
 
 #include <nstd/Console.hpp>
 #include <nstd/List.hpp>
@@ -7,9 +9,45 @@
 #include <nstd/Directory.hpp>
 #include <nstd/Error.hpp>
 #include <nstd/Process.hpp>
-#include <nstd/HashMap.hpp>
 
-#include "HttpRequest.hpp"
+#include <zlib.h>
+
+namespace {
+
+Buffer gunzip(const Buffer& input)
+{
+    Buffer result;
+    const int blockSize = 0xffff;
+    z_stream stream = { 0 };
+    if (inflateInit2(&stream, 16 | MAX_WBITS) != Z_OK)
+        return Buffer();
+    stream.avail_in = input.size();
+    stream.next_in = (z_const Bytef *)(const byte*)input;
+    result.reserve(blockSize);
+    stream.avail_out = blockSize;
+    stream.next_out = (byte*)result;
+    for (;;)
+    {
+        int n = inflate(&stream, Z_NO_FLUSH);
+        switch (n)
+        {
+        case Z_OK:
+            result.resize(stream.total_out);
+            result.reserve(result.size() + blockSize);
+            stream.avail_out = blockSize;
+            stream.next_out = (byte*)result + result.size();
+            break;
+        case Z_STREAM_END:
+            result.resize(stream.total_out);
+            return result;
+        default:
+            return Buffer();
+        }
+    }
+    return result;
+}
+
+}
 
 Worker::Worker(const Settings& settings, Socket& client, ICallback& callback)
     : _settings(settings)
@@ -45,7 +83,7 @@ uint Worker::main()
 
 namespace {
 
-bool readHttpRequest(Socket& client, String& header, String& body)
+bool readHttpRequest(Socket& client, String& header, Buffer& body)
 {
     byte buffer[1024];
     usize size = 0;
@@ -71,14 +109,14 @@ bool readHttpRequest(Socket& client, String& header, String& body)
                 uint64 contentLength = contentLengthStr.toUInt64();
                 body.clear();
                 body.reserve(contentLength);
-                body.append(headerEnd + 4, size - (headerEnd + 4 - (const char*)buffer));
-                byte* buf = (byte*)(char*)body;
-                while (body.length() < contentLength)
+                body.append((const byte*)headerEnd + 4, size - (headerEnd + 4 - (const char*)buffer));
+                byte* buf = (byte*)body;
+                while (body.size() < contentLength)
                 {
-                    ssize i = client.recv(buf + body.length(), contentLength - body.length());
+                    ssize i = client.recv(buf + body.size(), contentLength - body.size());
                     if (i <= 0)
                         return false;
-                    body.resize(body.length() + i);
+                    body.resize(body.size() + i);
                 }
             }
             return true;
@@ -154,19 +192,16 @@ bool getAuth(const String& header, String& auth)
     return true;
 }
 
-bool isAccessible(const String& url, const String& auth)
-{
-    HttpRequest httpRequest;
-    HashMap<String, String> headerFields;
-    if (!auth.isEmpty())
-        headerFields.append("Authorization", auth);
-    Buffer data;
-    return httpRequest.get(url, data, headerFields, false);
-}
-
 void requestAuth(Socket& client)
 {
     String response = "HTTP/1.1 401 Unauthorized\r\nWWW-Authenticate: Basic realm=\"\"\r\n\r\n";
+    client.send((const byte*)(const char*)response, response.length());
+}
+
+void respondError(Socket& client)
+{
+    
+    String response = "HTTP/1.1 500 Internal Server Error\r\n\r\n";
     client.send((const byte*)(const char*)response, response.length());
 }
 
@@ -175,7 +210,7 @@ void requestAuth(Socket& client)
 void Worker::handleRequest()
 {
     String header;
-    String body;
+    Buffer body;
     if (!readHttpRequest(_client, header, body))
         return;
     String method;
@@ -201,52 +236,138 @@ void Worker::handleRequest()
 
     if (service != "git-upload-pack")
         return;
-
-    String authCheckUrl = repoUrl + "/info/refs?service=git-upload-pack";
     String auth;
     getAuth(header, auth);
-    // todo: auth cache?
-    if (!isAccessible(authCheckUrl, auth))
-        return requestAuth(_client);
 
     if (method == "GET")
-        handleGetRequest(repoUrl, repo);
+        handleGetRequest(repoUrl, repo, auth);
     else if (method == "POST")
-        handlePostRequest(repo, body);
+    {
+        if (header.find("\r\nContent-Encoding: gzip\r\n"))
+            body = gunzip(body);
+        handlePostRequest(repo, auth, body);
+    }
 }
 
-void Worker::handleGetRequest(const String& repoUrl, const String& repo)
-{
-    // todo: avoid concurrent git fetch !
+namespace {
+    void decodeAuth(const String& auth, String& username, String& password)
+    {
+        if (!auth.startsWith("Basic "))
+            return;
+        String base64auth;
+        base64auth.attach((const char*)auth + 6, auth.length() - 6);
+        String authDecoded = String::fromBase64(base64auth);
+        const char* userNameEnd = authDecoded.find(':');
+        if (userNameEnd)
+        {
+            username = authDecoded.substr(0, userNameEnd - (const char*)authDecoded);
+            password = authDecoded.substr(username.length() + 1);
+        }
+        else
+            username = authDecoded;
+    }
 
+    String readAllStdError(Process& process)
+    {
+        String result;
+        char buf[1024];
+        for (;;)
+        {
+            uint streams = Process::stderrStream;
+            ssize n = process.read(buf, sizeof(buf) -1, streams);
+            if (n <= 0)
+                return result;
+            buf[n] = '\0';
+            result.append(buf);
+        }
+    }
+
+    enum class UpdateResult
+    {
+        Success,
+        AuthFailure,
+        Error,
+    };
+
+    UpdateResult updateRepository(const String& repoUrl, const String& askpassPath, const String& cacheDir, const String& auth)
+    {
+        Map<String, String> envs;
+        String username;
+        String password;
+
+        if (!auth.isEmpty())
+            decodeAuth(auth, username, password);
+
+        envs = Process::getEnvironmentVariables();
+        envs.insert("GIT_ASKPASS", askpassPath);
+        envs.insert("GCHSD_USERNAME", username);
+        envs.insert("GCHSD_PASSWORD", password);
+
+        {
+            NamedMutexGuard guard(cacheDir);
+
+            String command = String("git -C \"") + cacheDir + "\" fetch --quiet --prune --prune-tags";
+            Console::printf("%s\n", (const char*)command);
+            Process process;
+            uint32 pid = process.open(command, Process::stderrStream, envs);
+            if (!pid)
+            {
+                Log::errorf("Could not launch command '%s': %s", (const char*)command, (const char*)Error::getErrorString());
+                return UpdateResult::Error;
+            }
+            String stdout = readAllStdError(process);
+            uint32 exitCode = 1;
+            process.join(exitCode);
+            if (exitCode != 0)
+            {
+                if (stdout.find("Authentication failed "))
+                    return UpdateResult::AuthFailure;
+
+                command = String("git clone --quiet --mirror \"") + repoUrl + "\" \"" + cacheDir + "\"";
+                Console::printf("%s\n", (const char*)command);
+                uint32 pid = process.open(command, Process::stderrStream, envs);
+                if (!pid)
+                {
+                    Log::errorf("Could not launch command '%s': %s", (const char*)command, (const char*)Error::getErrorString());
+                    return UpdateResult::Error;
+                }
+                String stdout = readAllStdError(process);
+                uint32 exitCode = 1;
+                process.join(exitCode);
+                if (exitCode != 0)
+                {
+                    if (stdout.find("Authentication failed "))
+                        return UpdateResult::AuthFailure;
+                    return UpdateResult::Error;
+                }
+            }
+        }
+        return UpdateResult::Success;
+    }
+
+}
+
+void Worker::handleGetRequest(const String& repoUrl, const String& repo, const String& auth)
+{
     // create cache dir
     String cacheDir = _settings.cacheDir + "/" + repo;
     if (!Directory::create(cacheDir))
         return Log::errorf("Could not create directory '%s': %s", (const char*)cacheDir, (const char*)Error::getErrorString());
 
     // update cache
+    switch (updateRepository(repoUrl, _settings.askpassPath, cacheDir, auth))
     {
-        String command = String("git -C \"") + cacheDir + "\" fetch --quiet --prune --prune-tags";
-        Console::printf("%s\n", (const char*)command);
-        Process process;
-        uint32 pid = process.start(command);
-        if (!pid)
-            return Log::errorf("Could not launch command '%s': %s", (const char*)command, (const char*)Error::getErrorString());
-        uint32 exitCode = 1;
-        process.join(exitCode);
-        if (exitCode != 0)
-        {
-            command = String("git clone --quiet --mirror \"") + repoUrl + "\" \"" + cacheDir + "\"";
-            Console::printf("%s\n", (const char*)command);
-            uint32 pid = process.start(command);
-            if (!pid)
-                return Log::errorf("Could not launch command '%s': %s", (const char*)command, (const char*)Error::getErrorString());
-            uint32 exitCode = 1;
-            process.join(exitCode);
-            if (exitCode != 0)
-                return;
-        }
+    case UpdateResult::AuthFailure:
+        removeAuth(repo, auth);
+        requestAuth(_client);
+        return;
+    case UpdateResult::Error:
+        respondError(_client);
+        return;
+    case UpdateResult::Success:
+        break;
     }
+    storeAuth(repo, auth);
 
     // info response
     {
@@ -279,8 +400,14 @@ void Worker::handleGetRequest(const String& repoUrl, const String& repo)
     }
 }
 
-void Worker::handlePostRequest(const String& repo, String& body)
+void Worker::handlePostRequest(const String& repo, const String& auth, Buffer& body)
 {
+    if (!checkAuth(repo, auth))
+    {
+        requestAuth(_client);
+        return;
+    }
+
     String cacheDir = _settings.cacheDir + "/" + repo;
 
     {
@@ -291,8 +418,9 @@ void Worker::handlePostRequest(const String& repo, String& body)
         if (!pid)
             return Log::errorf("Could not launch command '%s': %s", (const char*)command, (const char*)Error::getErrorString());
 
-        if (process.write((const char*)body, body.length()) != body.length())
+        if (process.write((const byte*)body, body.size()) != body.size())
             return;
+        process.close(Process::stdinStream);
 
         String response = "HTTP/1.1 200 OK\r\n";
         response.append("Content-Type: application/x-git-upload-pack-advertisement\r\n");
