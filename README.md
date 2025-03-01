@@ -15,18 +15,18 @@ However, there are these differences and improvements:
 
 ## Build Instructions
 
-(It was developed on Debian-based platforms, it can probably also be compiled on other platforms, but don't ask me how.)
+(It was developed on and for Debian-based platforms, it can probably also be compiled on other platforms, but don't ask me how.)
 
-* Clone the Git repository and initialize submodules.
-* Install zlib1g-dev `sudo apt-get install zlib1g-dev`
-* Build the project with CMake.
-* You can build a *deb* package using the target *package* in CMake.
+* Clone the Git repository and initialize submodules. `git clone https://github.com/craflin/git-cache-http-server.git && git submodule update --init`
+* Install zlib1g-dev. `sudo apt-get install zlib1g-dev`
+* Build the project with CMake. `mkdir build && cd build && cmake .. && cmake --build .`
+* You can build a *deb* package using the *package* target in CMake. `cmake --build . --target package`
 
 ## Server Setup
 
-* Install *git*.
-* Install *gchsd* from the *deb* package.
-* Configure a cache directory (default is */tmp/gchsd*) and listen port (default is *80*) in */etc/gchsd.conf*.
+* Install *git*. `sudo apt-get install git`
+* Install *gchsd* from the *deb* package. `wget https://github.com/craflin/git-cache-http-server/releases/download/<version>>/gchsd-<version>-<platform>.deb && sudo dpkg -i ./gchsd-<version>-<platform>.deb`
+* If needed, configure a cache directory (default is */tmp/gchsd*) and listen port (default is *80*) in */etc/gchsd.conf*.
 * Start the *gchsd* daemon with `sudo systemctl start gchsd`.
   * You can use `sudo systemctl enable gchsd` to start the daemon automatically after a system restart.
 
