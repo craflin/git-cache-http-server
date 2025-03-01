@@ -15,7 +15,7 @@ However, there are these differences and improvements:
 
 ## Build Instructions
 
-It was developed on Debian-based platforms, it can probably also be compiled on other platforms, but don't ask me how.
+(It was developed on Debian-based platforms, it can probably also be compiled on other platforms, but don't ask me how.)
 
 * Clone the Git repository and initialize submodules.
 * Install zlib1g-dev `sudo apt-get install zlib1g-dev`
@@ -32,4 +32,4 @@ It was developed on Debian-based platforms, it can probably also be compiled on 
 
 ## Client Setup
 
-* Run `git config --global url."http://<mirror_server_addr>/https://".insteadOf https://` to use the mirror instead of the original source.
+* Run `git config --global url."http://<mirror_server_addr>[:<port>]/https://".insteadOf https://` to use the mirror instead of the original source.
