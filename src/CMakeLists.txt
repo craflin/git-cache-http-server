@@ -1,9 +1,11 @@
 
 set(sources
+    Authentications.cpp
+    Authentications.hpp
     Address.hpp
-    HttpRequest.cpp
-    HttpRequest.hpp
     Main.cpp
+    NamedMutex.cpp
+    NamedMutex.hpp
     Settings.cpp
     Settings.hpp
     Worker.cpp
@@ -15,12 +17,28 @@ add_executable(gchsd
 )
 
 target_link_libraries(gchsd PRIVATE
-    libnstd::Socket CURL::libcurl
+    libnstd::Socket
 )
 
 source_group("" FILES ${sources})
-
 set_property(TARGET gchsd PROPERTY FOLDER "src")
 
-install(TARGETS gchsd DESTINATION usr/sbin)
+
+set(sources
+    AskPass.cpp
+)
+
+add_executable(gchsd-askpass
+    ${sources}
+)
+target_link_libraries(gchsd-askpass PRIVATE
+    libnstd::Core
+)
+
+source_group("" FILES ${sources})
+set_property(TARGET gchsd-askpass PROPERTY FOLDER "src")
+
+
+
+install(TARGETS gchsd gchsd-askpass DESTINATION usr/sbin)
 
