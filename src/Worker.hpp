@@ -34,5 +34,5 @@ private:
     uint main();
     void handleRequest();
     void handleGetRequest(const String& repoUrl, const String& repo, const String& auth);
-    void handlePostRequest(const String& repo, const String& auth, Buffer& body, bool gzip);
+    void handlePostRequest(const String& repo, const String& auth, Buffer& body);
 };

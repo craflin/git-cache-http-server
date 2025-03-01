@@ -18,6 +18,7 @@ add_executable(gchsd
 
 target_link_libraries(gchsd PRIVATE
     libnstd::Socket
+    ZLIB::ZLIB
 )
 
 source_group("" FILES ${sources})

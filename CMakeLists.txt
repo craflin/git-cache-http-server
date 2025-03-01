@@ -4,6 +4,8 @@ cmake_policy(SET CMP0048 NEW)
 
 project(gchsd VERSION 0.2.0)
 
+find_package(ZLIB REQUIRED)
+
 set(CDEPLOY_NO_DEBUG_BUILD True)
 set(CDEPLOY_NO_COMPILER True)
 

@@ -5,10 +5,49 @@
 
 #include <nstd/Console.hpp>
 #include <nstd/List.hpp>
-    #include <nstd/Log.hpp>
+#include <nstd/Log.hpp>
 #include <nstd/Directory.hpp>
 #include <nstd/Error.hpp>
 #include <nstd/Process.hpp>
+
+#include <zlib.h>
+
+namespace {
+
+Buffer gunzip(const Buffer& input)
+{
+    Buffer result;
+    const int blockSize = 0xffff;
+    z_stream stream = { 0 };
+    if (inflateInit2(&stream, 16 | MAX_WBITS) != Z_OK)
+        return Buffer();
+    stream.avail_in = input.size();
+    stream.next_in = (z_const Bytef *)(const byte*)input;
+    result.reserve(blockSize);
+    stream.avail_out = blockSize;
+    stream.next_out = (byte*)result;
+    for (;;)
+    {
+        int n = inflate(&stream, Z_NO_FLUSH);
+        switch (n)
+        {
+        case Z_OK:
+            result.resize(stream.total_out);
+            result.reserve(result.size() + blockSize);
+            stream.avail_out = blockSize;
+            stream.next_out = (byte*)result + result.size();
+            break;
+        case Z_STREAM_END:
+            result.resize(stream.total_out);
+            return result;
+        default:
+            return Buffer();
+        }
+    }
+    return result;
+}
+
+}
 
 Worker::Worker(const Settings& settings, Socket& client, ICallback& callback)
     : _settings(settings)
@@ -204,8 +243,9 @@ void Worker::handleRequest()
         handleGetRequest(repoUrl, repo, auth);
     else if (method == "POST")
     {
-        bool gzip = header.find("\r\nContent-Encoding: gzip\r\n");
-        handlePostRequest(repo, auth, body, gzip);
+        if (header.find("\r\nContent-Encoding: gzip\r\n"))
+            body = gunzip(body);
+        handlePostRequest(repo, auth, body);
     }
 }
 
@@ -292,7 +332,6 @@ namespace {
                     return UpdateResult::Error;
                 }
                 String stdout = readAllStdError(process);
-                Console::printf("stdout=%s\n", (const char*)stdout);
                 uint32 exitCode = 1;
                 process.join(exitCode);
                 if (exitCode != 0)
@@ -361,7 +400,7 @@ void Worker::handleGetRequest(const String& repoUrl, const String& repo, const S
     }
 }
 
-void Worker::handlePostRequest(const String& repo, const String& auth, Buffer& body, bool gzip)
+void Worker::handlePostRequest(const String& repo, const String& auth, Buffer& body)
 {
     if (!checkAuth(repo, auth))
     {
@@ -373,8 +412,6 @@ void Worker::handlePostRequest(const String& repo, const String& auth, Buffer& b
 
     {
         String command = String("git-upload-pack --stateless-rpc \"") + cacheDir + "\"";
-        if (gzip)
-            command = String("bash -c \"gunzip | git-upload-pack --stateless-rpc '") + cacheDir + "'\"";
         Console::printf("%s\n", (const char*)command);
         Process process;
         uint32 pid = process.open(command, Process::stdoutStream | Process::stdinStream);
