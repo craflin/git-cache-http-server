@@ -17,7 +17,7 @@ However, there are these differences and improvements:
 
 (It was developed on and for Debian-based platforms, it can probably also be compiled on other platforms, but don't ask me how.)
 
-* Clone the Git repository and initialize submodules. `git clone https://github.com/craflin/git-cache-http-server.git && git submodule update --init`
+* Clone the Git repository and initialize submodules. `git clone https://github.com/craflin/git-cache-http-server.git && cd git-cache-http-server && git submodule update --init`
 * Install zlib1g-dev. `sudo apt-get install zlib1g-dev`
 * Build the project with CMake. `mkdir build && cd build && cmake .. && cmake --build .`
 * You can build a *deb* package using the *package* target in CMake. `cmake --build . --target package`
