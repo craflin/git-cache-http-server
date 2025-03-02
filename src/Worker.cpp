@@ -291,14 +291,12 @@ namespace {
 
     UpdateResult updateRepository(const String& repoUrl, const String& askpassPath, const String& cacheDir, const String& auth)
     {
-        Map<String, String> envs;
         String username;
         String password;
-
         if (!auth.isEmpty())
             decodeAuth(auth, username, password);
 
-        envs = Process::getEnvironmentVariables();
+        Map<String, String> envs = Process::getEnvironmentVariables();
         envs.insert("GIT_ASKPASS", askpassPath);
         envs.insert("GCHSD_USERNAME", username);
         envs.insert("GCHSD_PASSWORD", password);
@@ -320,7 +318,7 @@ namespace {
             process.join(exitCode);
             if (exitCode != 0)
             {
-                if (stdout.find("Authentication failed "))
+                if (stdout.find(" Authentication failed "))
                     return UpdateResult::AuthFailure;
 
                 command = String("git clone --quiet --mirror \"") + repoUrl + "\" \"" + cacheDir + "\"";
@@ -331,12 +329,11 @@ namespace {
                     Log::errorf("Could not launch command '%s': %s", (const char*)command, (const char*)Error::getErrorString());
                     return UpdateResult::Error;
                 }
-                String stdout = readAllStdError(process);
-                uint32 exitCode = 1;
+                stdout = readAllStdError(process);
                 process.join(exitCode);
                 if (exitCode != 0)
                 {
-                    if (stdout.find("Authentication failed "))
+                    if (stdout.find(" Authentication failed "))
                         return UpdateResult::AuthFailure;
                     return UpdateResult::Error;
                 }
