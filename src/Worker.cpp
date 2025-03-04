@@ -3,7 +3,6 @@
 #include "NamedMutex.hpp"
 #include "Authentications.hpp"
 
-#include <nstd/Console.hpp>
 #include <nstd/List.hpp>
 #include <nstd/Log.hpp>
 #include <nstd/Directory.hpp>
@@ -305,7 +304,7 @@ namespace {
             NamedMutexGuard guard(cacheDir);
 
             String command = String("git -C \"") + cacheDir + "\" fetch --quiet --prune --prune-tags";
-            Console::printf("%s\n", (const char*)command);
+            Log::infof("%s", command);
             Process process;
             uint32 pid = process.open(command, Process::stderrStream, envs);
             if (!pid)
@@ -322,7 +321,7 @@ namespace {
                     return UpdateResult::AuthFailure;
 
                 command = String("git clone --quiet --mirror \"") + repoUrl + "\" \"" + cacheDir + "\"";
-                Console::printf("%s\n", (const char*)command);
+                Log::infof("%s", command);
                 uint32 pid = process.open(command, Process::stderrStream, envs);
                 if (!pid)
                 {
@@ -369,7 +368,7 @@ void Worker::handleGetRequest(const String& repoUrl, const String& repo, const S
     // info response
     {
         String command = String("git-upload-pack --stateless-rpc --advertise-refs \"") + cacheDir + "\"";
-        Console::printf("%s\n", (const char*)command);
+        Log::infof("%s", command);
         Process process;
         uint32 pid = process.open(command);
         if (!pid)
@@ -409,7 +408,7 @@ void Worker::handlePostRequest(const String& repo, const String& auth, Buffer& b
 
     {
         String command = String("git-upload-pack --stateless-rpc \"") + cacheDir + "\"";
-        Console::printf("%s\n", (const char*)command);
+        Log::infof("%s", command);
         Process process;
         uint32 pid = process.open(command, Process::stdoutStream | Process::stdinStream);
         if (!pid)
