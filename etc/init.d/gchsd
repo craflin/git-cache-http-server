@@ -14,7 +14,7 @@
 #
 
 PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
-DAEMON=/usr/sbin/forwarder
+DAEMON=/usr/sbin/gchsd
 NAME=gchsd
 DESC="A mirroring Git HTTP server daemon"
 DAEMON_OPTS=
