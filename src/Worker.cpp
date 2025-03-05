@@ -312,12 +312,12 @@ namespace {
                 Log::errorf("Could not launch command '%s': %s", (const char*)command, (const char*)Error::getErrorString());
                 return UpdateResult::Error;
             }
-            String stdout = readAllStdError(process);
+            String stderr = readAllStdError(process);
             uint32 exitCode = 1;
             process.join(exitCode);
             if (exitCode != 0)
             {
-                if (stdout.find(" Authentication failed "))
+                if (stderr.find(" Authentication failed "))
                     return UpdateResult::AuthFailure;
 
                 command = String("git clone --quiet --mirror \"") + repoUrl + "\" \"" + cacheDir + "\"";
@@ -328,12 +328,14 @@ namespace {
                     Log::errorf("Could not launch command '%s': %s", (const char*)command, (const char*)Error::getErrorString());
                     return UpdateResult::Error;
                 }
-                stdout = readAllStdError(process);
+                stderr = readAllStdError(process);
                 process.join(exitCode);
                 if (exitCode != 0)
                 {
-                    if (stdout.find(" Authentication failed "))
+                    if (stderr.find(" Authentication failed "))
                         return UpdateResult::AuthFailure;
+                        stderr.trim();
+                    Log::errorf("Clone failed: %s", (const char*)stderr);
                     return UpdateResult::Error;
                 }
             }
