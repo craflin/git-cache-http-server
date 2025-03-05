@@ -304,7 +304,7 @@ namespace {
             NamedMutexGuard guard(cacheDir);
 
             String command = String("git -C \"") + cacheDir + "\" fetch --quiet --prune --prune-tags";
-            Log::infof("%s", command);
+            Log::infof("%s", (const char*)command);
             Process process;
             uint32 pid = process.open(command, Process::stderrStream, envs);
             if (!pid)
@@ -321,7 +321,7 @@ namespace {
                     return UpdateResult::AuthFailure;
 
                 command = String("git clone --quiet --mirror \"") + repoUrl + "\" \"" + cacheDir + "\"";
-                Log::infof("%s", command);
+                Log::infof("%s", (const char*)command);
                 uint32 pid = process.open(command, Process::stderrStream, envs);
                 if (!pid)
                 {
@@ -368,7 +368,7 @@ void Worker::handleGetRequest(const String& repoUrl, const String& repo, const S
     // info response
     {
         String command = String("git-upload-pack --stateless-rpc --advertise-refs \"") + cacheDir + "\"";
-        Log::infof("%s", command);
+        Log::infof("%s", (const char*)command);
         Process process;
         uint32 pid = process.open(command);
         if (!pid)
@@ -408,7 +408,7 @@ void Worker::handlePostRequest(const String& repo, const String& auth, Buffer& b
 
     {
         String command = String("git-upload-pack --stateless-rpc \"") + cacheDir + "\"";
-        Log::infof("%s", command);
+        Log::infof("%s", (const char*)command);
         Process process;
         uint32 pid = process.open(command, Process::stdoutStream | Process::stdinStream);
         if (!pid)
