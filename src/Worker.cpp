@@ -235,8 +235,14 @@ void Worker::handleRequest()
 
     if (service != "git-upload-pack")
         return;
+
     String auth;
     getAuth(header, auth);
+    if (auth.isEmpty() && authRequired(repo))
+    {
+        requestAuth(_client);
+        return;
+    }
 
     if (method == "GET")
         handleGetRequest(repoUrl, repo, auth);

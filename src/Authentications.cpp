@@ -13,7 +13,7 @@ namespace {
 
     String getKey(const String& repo, const String& auth)
     {
-        return auth + " " + repo;
+        return repo + " " + auth;
     }
 
     void _cleanup(int64 now)
@@ -56,5 +56,21 @@ bool checkAuth(const String& repo, const String& auth)
         Mutex::Guard guard(_mutex);
         _cleanup(now);
         return _authentications.contains(key);
+    }
+}
+
+bool authRequired(const String& repo)
+{
+    int64 now = Time::time();
+    String key = getKey(repo, String());
+    {
+        Mutex::Guard guard(_mutex);
+        _cleanup(now);
+        if (_authentications.contains(key))
+            return false;
+        for (AuthMap::Iterator i = _authentications.begin(), end = _authentications.end(); i != end; ++i)
+            if (i.key().startsWith(key))
+                return true;
+        return false;
     }
 }
