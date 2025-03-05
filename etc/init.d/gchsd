@@ -31,7 +31,7 @@ DAEMON_OPTS="-b $DAEMON_OPTS"
 start() {
 	echo -n "Starting $DESC: "
 
-	$DAEMON $DAEMON_OPTS
+	bash -l -c '$DAEMON $DAEMON_OPTS'
 	if [ $? -eq 0 ]; then
 		echo "$NAME."
 	else
