@@ -27,7 +27,7 @@ However, there are these differences and improvements:
 * Install *git*. `sudo apt-get install git`
 * Install *gchsd* from the *deb* package. `wget https://github.com/craflin/git-cache-http-server/releases/download/<version>>/gchsd-<version>-<platform>.deb && sudo dpkg -i ./gchsd-<version>-<platform>.deb`
 * If needed, configure a cache directory (default is */tmp/gchsd*) and listen port (default is *80*) in */etc/gchsd.conf*.
-* Start the *gchsd* daemon with `sudo systemctl start gchsd`.
+* Start the *gchsd* daemon with `sudo systemctl daemon-reload && sudo systemctl start gchsd`.
   * You can use `sudo systemctl enable gchsd` to start the daemon automatically after a system restart.
 
 ## Client Setup
