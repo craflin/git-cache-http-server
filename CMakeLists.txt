@@ -21,7 +21,7 @@ set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "A mirroring Git HTTP server daemon")
 set(CPACK_PACKAGING_INSTALL_PREFIX "/")
 #set(CPACK_DEBIAN_FILE_NAME "DEB-DEFAULT")
 set(CPACK_DEBIAN_PACKAGE_HOMEPAGE "https://github.com/craflin/git-cache-http-server")
-set(CPACK_DEBIAN_PACKAGE_DEPENDS "libc6 (>= 2.15)")
+set(CPACK_DEBIAN_PACKAGE_DEPENDS "libc6 (>= 2.15), git, sudo")
 set(CPACK_DEBIAN_PACKAGE_SECTION "net")
 
 include(CPack)
