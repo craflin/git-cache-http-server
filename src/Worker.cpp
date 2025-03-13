@@ -143,9 +143,13 @@ bool parseHeader(const String& header, String& method, String& path)
 String getRequestUrl(const String& path)
 {
     String result = path.startsWith("/") ? path.substr(1) : path;
-    bool https = result.startsWith("https://");
-    if (!https && !result.startsWith("http://"))
-        result.prepend("http://");
+    if (result.startsWith("https://") || result.startsWith("http://"))
+	return result;
+    if (result.startsWith("https:/"))
+	return String("https://") + result.substr(7);
+    if (result.startsWith("http:/"))
+	return  String("http://") + result.substr(6);
+    result.prepend("http://");
     return result;
 }
 
@@ -216,6 +220,8 @@ void Worker::handleRequest()
     String path;
     if (!parseHeader(header, method, path))
         return;
+
+    Log::infof("%s %s", (const char*)method, (const char*)path);
 
     String repoUrl;
     String repo;
@@ -427,7 +433,7 @@ void Worker::handlePostRequest(const String& repo, const String& auth, Buffer& b
         process.close(Process::stdinStream);
 
         String response = "HTTP/1.1 200 OK\r\n";
-        response.append("Content-Type: application/x-git-upload-pack-advertisement\r\n");
+        response.append("Content-Type: application/x-git-upload-pack-result\r\n");
         response.append("Cache-Control: no-cache\r\n\r\n");
         if (_client.send((const byte*)(const char*)response, response.length()) != response.length())
             return;
