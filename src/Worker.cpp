@@ -144,11 +144,11 @@ String getRequestUrl(const String& path)
 {
     String result = path.startsWith("/") ? path.substr(1) : path;
     if (result.startsWith("https://") || result.startsWith("http://"))
-	return result;
+        return result;
     if (result.startsWith("https:/"))
-	return String("https://") + result.substr(7);
+        return String("https://") + result.substr(7);
     if (result.startsWith("http:/"))
-	return  String("http://") + result.substr(6);
+        return  String("http://") + result.substr(6);
     result.prepend("http://");
     return result;
 }
@@ -372,12 +372,14 @@ void Worker::handleGetRequest(const String& repoUrl, const String& repo, const S
         requestAuth(_client);
         return;
     case UpdateResult::Error:
+        if (checkAuth(repo, auth))
+            break; // Git fetch failed, but the cache might be up-to-date. So, let's try to continue...
         respondError(_client);
         return;
     case UpdateResult::Success:
+        storeAuth(repo, auth);
         break;
     }
-    storeAuth(repo, auth);
 
     // info response
     {
