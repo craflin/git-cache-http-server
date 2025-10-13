@@ -409,7 +409,11 @@ void Worker::handleGetRequest(const String& repoUrl, const String& repo, const S
             if (len == 0)
                 break;
             if (_client.send(buf, len) != len)
+            {
+                process.terminate();
+                while (process.read(buf, sizeof(buf)) > 0);
                 return;
+            }
         }
     }
 }
@@ -454,7 +458,11 @@ void Worker::handlePostRequest(const String& repo, const String& auth, Buffer& b
             if (len == 0)
                 break;
             if (_client.send(buf, len) != len)
+            {
+                process.terminate();
+                while (process.read(buf, sizeof(buf)) > 0);
                 return;
+            }
         }
     }
 }
