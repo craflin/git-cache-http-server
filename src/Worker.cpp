@@ -383,8 +383,6 @@ void Worker::handleGetRequest(const String& repoUrl, const String& repo, const S
 
     // info response
     {
-        NamedMutexGuard guard(cacheDir);
-
         String command = String("git-upload-pack --stateless-rpc --advertise-refs \"") + cacheDir + "\"";
         Log::infof("%s", (const char*)command);
         Process process;
@@ -429,8 +427,6 @@ void Worker::handlePostRequest(const String& repo, const String& auth, Buffer& b
     String cacheDir = _settings.cacheDir + "/" + repo;
 
     {
-        NamedMutexGuard guard(cacheDir);
-
         String command = String("git-upload-pack --stateless-rpc \"") + cacheDir + "\"";
         Log::infof("%s", (const char*)command);
         Process process;
