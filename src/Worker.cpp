@@ -2,12 +2,14 @@
 #include "Worker.hpp"
 #include "NamedMutex.hpp"
 #include "Authentications.hpp"
+#include "UpdateTimes.hpp"
 
 #include <nstd/List.hpp>
 #include <nstd/Log.hpp>
 #include <nstd/Directory.hpp>
 #include <nstd/Error.hpp>
 #include <nstd/Process.hpp>
+#include <nstd/Time.hpp>
 
 #include <zlib.h>
 
@@ -302,18 +304,26 @@ namespace {
 
     UpdateResult updateRepository(const String& repoUrl, const String& askpassPath, const String& cacheDir, const String& auth)
     {
-        String username;
-        String password;
-        if (!auth.isEmpty())
-            decodeAuth(auth, username, password);
-
-        Map<String, String> envs = Process::getEnvironmentVariables();
-        envs.insert("GIT_ASKPASS", askpassPath);
-        envs.insert("GCHSD_USERNAME", username);
-        envs.insert("GCHSD_PASSWORD", password);
+        int64 updateRequestTime = Time::time();
 
         {
             NamedMutexGuard guard(cacheDir);
+
+            int64 lastUpdateTime = getUpdateTime(cacheDir);
+            if (lastUpdateTime > updateRequestTime)
+                return UpdateResult::Success;
+
+            int64 updateTime = Time::time();
+
+            String username;
+            String password;
+            if (!auth.isEmpty())
+                decodeAuth(auth, username, password);
+
+            Map<String, String> envs = Process::getEnvironmentVariables();
+            envs.insert("GIT_ASKPASS", askpassPath);
+            envs.insert("GCHSD_USERNAME", username);
+            envs.insert("GCHSD_PASSWORD", password);
 
             String command = String("git -C \"") + cacheDir + "\" fetch --quiet --prune --prune-tags";
             Log::infof("%s", (const char*)command);
@@ -331,6 +341,8 @@ namespace {
             {
                 if (stderr.find(" Authentication failed "))
                     return UpdateResult::AuthFailure;
+
+                Directory::unlink(cacheDir, true);
 
                 command = String("git clone --quiet --mirror \"") + repoUrl + "\" \"" + cacheDir + "\"";
                 Log::infof("%s", (const char*)command);
@@ -351,8 +363,9 @@ namespace {
                     return UpdateResult::Error;
                 }
             }
+            storeUpdateTime(cacheDir, updateTime);
+            return UpdateResult::Success;
         }
-        return UpdateResult::Success;
     }
 
 }

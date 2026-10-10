@@ -8,6 +8,8 @@ set(sources
     NamedMutex.hpp
     Settings.cpp
     Settings.hpp
+    UpdateTimes.cpp
+    UpdateTimes.hpp
     Worker.cpp
     Worker.hpp
 )
