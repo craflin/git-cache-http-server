@@ -342,6 +342,8 @@ namespace {
                 if (stderr.find(" Authentication failed "))
                     return UpdateResult::AuthFailure;
 
+                Directory::unlink(cacheDir);
+
                 command = String("git clone --quiet --mirror \"") + repoUrl + "\" \"" + cacheDir + "\"";
                 Log::infof("%s", (const char*)command);
                 uint32 pid = process.open(command, Process::stderrStream, envs);
