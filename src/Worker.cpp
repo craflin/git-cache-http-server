@@ -10,6 +10,7 @@
 #include <nstd/Error.hpp>
 #include <nstd/Process.hpp>
 #include <nstd/Time.hpp>
+#include <nstd/File.hpp>
 
 #include <zlib.h>
 
@@ -342,9 +343,9 @@ namespace {
                 if (stderr.find(" Authentication failed "))
                     return UpdateResult::AuthFailure;
 
-                Directory::unlink(cacheDir, true);
+                Directory::unlink(cacheDir + ".new", true);
 
-                command = String("git clone --quiet --mirror \"") + repoUrl + "\" \"" + cacheDir + "\"";
+                command = String("git clone --quiet --mirror \"") + repoUrl + "\" \"" + cacheDir + ".new\"";
                 Log::infof("%s", (const char*)command);
                 uint32 pid = process.open(command, Process::stderrStream, envs);
                 if (!pid)
@@ -360,8 +361,13 @@ namespace {
                         return UpdateResult::AuthFailure;
                         stderr.trim();
                     Log::errorf("Clone failed: %s", (const char*)stderr);
+                    Directory::unlink(cacheDir + ".new", true);
                     return UpdateResult::Error;
                 }
+
+                Directory::unlink(cacheDir, true);
+                File::rename(cacheDir + ".new", cacheDir, false);
+
             }
             storeUpdateTime(cacheDir, updateTime);
             return UpdateResult::Success;
